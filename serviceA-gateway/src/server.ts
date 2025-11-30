@@ -30,18 +30,7 @@ function pushMessage(msg: Message) {
   history.set(msg.tenantId, arr);
 }
 
-/**
- * POST /chat
- * Body: { text: string, provider?: string, slow?: boolean }
- * Header: X-Tenant-Id
- * Returns: { chatId }
- *
- * Processing:
- * - store user message in history
- * - create chatId, start async call to Responder (HTTP)
- * - when Responder returns (full text), chunk it and append chunks to job
- * - clients should connect to GET /stream/:chatId to receive SSE events ('chunk' and 'done')
- */
+
 app.post("/chat", async (req, res) => {
   const tenantId = (req.header("X-Tenant-Id") || "default").toString();
   const { text, provider, slow } = req.body as { text: string; provider?: string; slow?: boolean };
@@ -64,31 +53,31 @@ app.post("/chat", async (req, res) => {
   const chatId = uuidv4();
   createChat(chatId);
 
-  // respond immediately with chatId; client will open SSE to /stream/:chatId
+ 
   res.json({ chatId });
 
-  // start responder call (async)
+  
   (async () => {
     try {
       const r = await axios.post(RESPONDER_URL, { tenantId, text, provider, slow });
       const { reply, metadata } = r.data as { reply: string; metadata?: Record<string, any> };
 
-      // Build assistant message; keep metadata optional to show model evolution
+      
       const assistantMsg: Message = {
         id: uuidv4(),
         tenantId,
         sender: "assistant",
         text: reply,
         timestamp: new Date().toISOString(),
-        metadata, // may be undefined
+        metadata, 
       };
 
-      // chunking strategy: split by sentences, then fallback by words
+      
       const chunks = chunkTextForStreaming(reply);
 
       for (const c of chunks) {
         appendChunk(chatId, { type: "chunk", data: c });
-        // also sleep a bit to simulate typing speed and allow UI to show streaming
+        
         await sleep(150 + Math.random() * 150);
       }
       // mark done
@@ -105,15 +94,11 @@ app.post("/chat", async (req, res) => {
   })();
 });
 
-/**
- * SSE endpoint for a job
- * GET /stream/:chatId
- * Header X-Tenant-Id (for logging; not strictly required here)
- */
+
 app.get("/stream/:chatId", (req, res) => {
   const { chatId } = req.params;
   const tenantId = (req.header("X-Tenant-Id") || "default").toString();
-  logWithTenant(tenantId, `SSE connect for job ${chatId}`);
+  logWithTenant(tenantId, `SSE connect for chat ${chatId}`);
  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Tenant-Id");
   
