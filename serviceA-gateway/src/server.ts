@@ -80,11 +80,11 @@ app.post("/chat", async (req, res) => {
         
         await sleep(150 + Math.random() * 150);
       }
-      // mark done
+     
       appendChunk(chatId, { type: "done" });
-      // store assistant message after full streaming
+      
       pushMessage(assistantMsg);
-      // cleanup job a little later
+      
       setTimeout(() => deleteChat(chatId), 1000 * 60 * 5);
     } catch (err) {
       console.error("Gateway error calling responder:", err || err);
